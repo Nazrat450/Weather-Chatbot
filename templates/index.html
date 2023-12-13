@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='app.css') }}">
+    <title>Weather App</title>
+</head>
+<body>
+    <div id="mapPopup" class="map-popup">
+        <span id="closePopup" class="close-popup">&times;</span>
+        <iframe id="mapFrame" width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
+      </div>
+
+      <div id="chat-container">
+        <div id="chat-box"></div>
+        <input type="text" id="chat-input" placeholder="Ask me about the weather...">
+        <button onclick="sendMessage()">Send</button>
+    </div>
+
+
+    <div class="container"> 
+        <h1>Hitchhiker's Guide To The Weather</h1>
+        <form action="/" method="post">
+            <input type="text" name="location" placeholder="Enter location">
+            <input type="submit" value="Add Location">
+            
+           
+        </form>
+        
+        <table>
+            <tr>
+                <th>Location</th>
+                <th>Temperature (°C)</th>
+                <th>Condition</th>
+                <th><button id="export-btn">Export</button></th>
+                
+            </tr>
+            {% for data in weather_data %}
+            <tr onclick="openMap('{{ data.location }}')">
+                <td>{{ data.location }}</td>
+                <td>{{ data.temperature }}</td>
+                <td>{{ data.condition }}</td>
+                <td></td>
+            </tr>
+            {% endfor %}
+            
+        </table>
+        
+        <a href="/clear" class="clear-btn">Clear</a>
+        <iframe id="mapFrame" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
+    </div>
+    
+    <script>
+        // open Google Maps
+        function openMap(location) {
+            var googleMapsUrl = `https://www.google.com/maps/embed/v1/search?key=AIzaSyA5eeWrdCk-IKKupCnppPNs2QMqPpD4K-E&q=${location}`;
+            document.getElementById('mapFrame').src = googleMapsUrl;
+            document.getElementById('mapPopup').style.display = 'block';
+        }
+            document.getElementById('closePopup').addEventListener('click', function() {
+            document.getElementById('mapPopup').style.display = 'none';
+        });
+
+
+    // export to CSV 
+    document.getElementById("export-btn").addEventListener("click", function(){
+      var csv = 'Location,Temperature,Condition\n';
+      var rows = document.querySelectorAll("table tr");
+      
+      for (var i = 0; i < rows.length; i++) {
+        var row = [], cols = rows[i].querySelectorAll("td, th");
+        
+        for (var j = 0; j < cols.length; j++) {
+          row.push(cols[j].innerText);
+        }
+        
+        csv += row.join(",") + "\n";
+      }
+      
+      var csvBlob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      var link = document.createElement("a");
+      var url = URL.createObjectURL(csvBlob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", "weather guide.csv");
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    });
+
+    function sendMessage() {
+        var userInput = document.getElementById('chat-input').value;
+        fetch('/get-response', {
+            method: 'POST',
+            body: new URLSearchParams('text=' + userInput),
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            var chatBox = document.getElementById('chat-box');
+            chatBox.innerHTML += '<div>User: ' + userInput + '</div>';
+            chatBox.innerHTML += '<div>Bot: ' + data.bot_response + '</div>';
+        });
+    }
+
+
+
+
+
+
+
+</script>
+
+
+
+</html>
