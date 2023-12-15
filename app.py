@@ -12,7 +12,21 @@ import sqlite3
 ##  101139468@student.swin.edu.au   ##
 ##                                  ##
 ######################################
+#API42c10c6eeff25fdb9a2e1ae45c758f7f
 
+
+locations = [
+        {"name": "Lake District National Park", "lat": 54.4609, "lon": -3.0886},
+        {"name": "Corfe Castle", "lat": 50.6395, "lon": -2.0566},
+        {"name": "The Cotswolds", "lat": 51.8330, "lon": -1.8433},
+        {"name": "Cambridge", "lat": 52.2053, "lon": 0.1218},
+        {"name": "Bristol", "lat": 51.4545, "lon": -2.5879},
+        {"name": "Oxford", "lat": 51.7520, "lon": -1.2577},
+        {"name": "Norwich", "lat": 52.6309, "lon": 1.2974},
+        {"name": "Stonehenge", "lat": 51.1789, "lon": -1.8262},
+        {"name": "Watergate Bay", "lat": 50.4429, "lon": -5.0553},
+        {"name": "Birmingham", "lat": 52.4862, "lon": -1.8904}
+    ]
 
 # Define the function to initialize the database
 def init_db():
@@ -54,7 +68,8 @@ conn.close()
 
 init_db()
 
-#42c10c6eeff25fdb9a2e1ae45c758f7f
+weather_data_backend = {}  # Global dictionary to store weather data
+
 
 # Create a chatbot instance
 chatbot = ChatBot('WeatherBot')
@@ -74,8 +89,7 @@ app = Flask(__name__)
 def get_bot_response():
     user_input = request.form.get('text').lower()
 
-    
-     # Check for greeting in the user input
+    # Check for greeting in the user input
     if user_input in ['hello', 'hi', 'greetings', 'hey']:
         # Fetch greeting response from database
         conn = sqlite3.connect('mattbot.db')
@@ -89,13 +103,34 @@ def get_bot_response():
         else:
             bot_response = "Hello! How can I assist you?"
 
-    elif 'weather' in user_input.lower():
-        city_name = user_input.split()[-1]  # Simple method to get city name
-        api_key = "42c10c6eeff25fdb9a2e1ae45c758f7f"
-        api_url = f"http://api.openweathermap.org/data/2.5/weather?q={city_name}&appid={api_key}&units=metric"
+    elif 'weather' in user_input:
+        # Extract the location name from the user input
+        words = user_input.split()
+        if 'weather' in words:
+            weather_index = words.index('weather')
+            location_name = ' '.join(words[weather_index + 1:])
+        else:
+            location_name = ''
+
+        print("Extracted location name:", location_name)  # Debug print
+
+        # Check if location_name matches any in the predefined locations list
+        matched_location = next((loc for loc in locations if loc['name'].lower() == location_name.lower()), None)
+
+        if matched_location:
+            # Use latitude and longitude if a match is found
+            lat, lon = matched_location['lat'], matched_location['lon']
+            api_url = f"http://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid=42c10c6eeff25fdb9a2e1ae45c758f7f&units=metric"
+        else:
+            # Use the location name as entered if no match is found
+            api_url = f"http://api.openweathermap.org/data/2.5/weather?q={location_name}&appid=42c10c6eeff25fdb9a2e1ae45c758f7f&units=metric"
+
+        print("API URL:", api_url)  # Debug print
 
         # Fetch weather data from API
         response = requests.get(api_url)
+        print("API Response Status:", response.status_code)  # Debug print
+
         if response.status_code == 200:
             weather_data = response.json()
             temperature = weather_data['main']['temp']
@@ -104,12 +139,12 @@ def get_bot_response():
             # Fetch response template from database
             conn = sqlite3.connect('mattbot.db')
             cursor = conn.cursor()
-            cursor.execute("SELECT template FROM response_templates WHERE id = 1")  # Assuming 1 is the ID of your template
+            cursor.execute("SELECT template FROM response_templates WHERE id = 1")
             template = cursor.fetchone()[0]
             conn.close()
 
-            # Fill in the template
-            bot_response = template.format(location=city_name, temperature=temperature, condition=condition)
+            # Fill in the template with fetched data
+            bot_response = template.format(location=location_name.title(), temperature=temperature, condition=condition)
         else:
             bot_response = "Sorry, I couldn't find the weather for that location."
     else:
@@ -126,18 +161,7 @@ error_message = None  # Variable to store the error message
 def index():
     global weather_data  # Use the global variable
     # Locations defined by assignment
-    locations = [
-        {"name": "Lake District National Park", "lat": 54.4609, "lon": -3.0886},
-        {"name": "Corfe Castle", "lat": 50.6395, "lon": -2.0566},
-        {"name": "The Cotswolds", "lat": 51.8330, "lon": -1.8433},
-        {"name": "Cambridge", "lat": 52.2053, "lon": 0.1218},
-        {"name": "Bristol", "lat": 51.4545, "lon": -2.5879},
-        {"name": "Oxford", "lat": 51.7520, "lon": -1.2577},
-        {"name": "Norwich", "lat": 52.6309, "lon": 1.2974},
-        {"name": "Stonehenge", "lat": 51.1789, "lon": -1.8262},
-        {"name": "Watergate Bay", "lat": 50.4429, "lon": -5.0553},
-        {"name": "Birmingham", "lat": 52.4862, "lon": -1.8904}
-    ]
+    
     #Search bar
     existing_locations = {entry['location'] for entry in weather_data} 
     if request.method == 'POST':
