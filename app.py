@@ -5,7 +5,7 @@ from chatterbot.trainers import ChatterBotCorpusTrainer
 import sqlite3
 import re
 import datetime
-
+import time
 
 
 ######MatthewHill#####################
@@ -13,8 +13,8 @@ import datetime
 ##  101139468@student.swin.edu.au   ##
 ##                                  ##
 ######################################
-#API42c10c6eeff25fdb9a2e1ae45c758f7f
 
+#API KEY   API42c10c6eeff25fdb9a2e1ae45c758f7f
 
 locations = [
         {"name": "Lake District National Park", "lat": 54.4609, "lon": -3.0886},
@@ -74,6 +74,19 @@ trainer = ChatterBotCorpusTrainer(chatbot)
 
 # Train the chatbot based on the English corpus
 trainer.train("chatterbot.corpus.english")
+
+def is_cache_valid(location, cache):
+    """Check if the cache entry is valid."""
+    if location in cache:
+        cached_time = cache[location]['timestamp']
+        if time.time() - cached_time < CACHE_TIMEOUT:
+            return True
+    return False
+
+
+
+
+
 
 def process_forecast_data(forecast_data):
     forecast_summary = ""
@@ -178,12 +191,12 @@ def get_bot_response():
              
 
     elif 'weather' in user_input:
-        # Extract the location name from the user input
+    # Extract the location name from the user input
         match = re.search(r'(?:weather|forecast)\s(?:in|for|at)\s([\w\s]+)', user_input, re.IGNORECASE)
         if match:
-         location_name = match.group(1).strip()
+            location_name = match.group(1).strip()
         else:
-         location_name = ''
+            location_name = ''
 
         print("Extracted location name:", location_name)  # Debug print
 
@@ -193,33 +206,44 @@ def get_bot_response():
         if matched_location:
             # Use latitude and longitude if a match is found
             lat, lon = matched_location['lat'], matched_location['lon']
-            api_url = f"http://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid=42c10c6eeff25fdb9a2e1ae45c758f7f&units=metric"
+            location_key = f"{lat},{lon}"
         else:
             # Use the location name as entered if no match is found
-            api_url = f"http://api.openweathermap.org/data/2.5/weather?q={location_name}&appid=42c10c6eeff25fdb9a2e1ae45c758f7f&units=metric"
+            location_key = location_name.lower()
 
-        print("API URL:", api_url)  # Debug print
-
-        # Fetch weather data from API
-        response = requests.get(api_url)
-        print("API Response Status:", response.status_code)  # Debug print
-
-        if response.status_code == 200:
-            weather_data = response.json()
-            temperature = weather_data['main']['temp']
-            condition = weather_data['weather'][0]['description']
-
-            # Fetch response template from database
-            conn = sqlite3.connect('mattbot.db')
-            cursor = conn.cursor()
-            cursor.execute("SELECT template FROM response_templates WHERE id = 1")
-            template = cursor.fetchone()[0]
-            conn.close()
-
-            # Fill in the template with fetched data
-            bot_response = template.format(location=location_name.title(), temperature=temperature, condition=condition)
+        # Check cache
+        if is_cache_valid(location_key, weather_data_backend):
+            bot_response = weather_data_backend[location_key]['data']
         else:
-            bot_response = "Sorry, I couldn't find the weather for that location."
+            # Construct API URL based on latitude/longitude or location name
+            api_url = construct_api_url(location_name, matched_location)
+
+            # Fetch weather data from API
+            response = requests.get(api_url)
+            print("API Response Status:", response.status_code)  # Debug print
+
+            if response.status_code == 200:
+                weather_data = response.json()
+                temperature = weather_data['main']['temp']
+                condition = weather_data['weather'][0]['description']
+
+                # Fetch response template from database
+                conn = sqlite3.connect('mattbot.db')
+                cursor = conn.cursor()
+                cursor.execute("SELECT template FROM response_templates WHERE id = 1")
+                template = cursor.fetchone()[0]
+                conn.close()
+
+                # Fill in the template with fetched data
+                bot_response = template.format(location=location_name.title(), temperature=temperature, condition=condition)
+
+                # Update cache
+                weather_data_backend[location_key] = {
+                    'data': bot_response,
+                    'timestamp': time.time()
+                }
+            else:
+                bot_response = "Sorry, I couldn't find the weather for that location."
     else:
         # Normal chatbot response
         bot_response = str(chatbot.get_response(user_input))
@@ -267,6 +291,10 @@ def index():
                     
 
     return render_template('index.html', weather_data=weather_data)
+
+
+
+
 
 @app.route('/clear', methods=['GET'])
 def clear_data():
