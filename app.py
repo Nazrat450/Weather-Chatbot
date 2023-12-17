@@ -29,7 +29,7 @@ locations = [
         {"name": "Birmingham", "lat": 52.4862, "lon": -1.8904}
     ]
 
-# Define the function to initialize the database
+# initialize the database
 def init_db():
     conn = sqlite3.connect('mattbot.db')
     cursor = conn.cursor()

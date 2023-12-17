@@ -101,16 +101,16 @@ body {
 
 /* User's messages */
 #chat-box > div:nth-child(odd) {
-  background-color: #e7f5ff; /* Light blue background */
+  background-color: #e7f5ff; 
   text-align: right;
-  color: #333; /* Darker text for readability */
+  color: #333; 
 }
 
 /* Bot's messages */
 #chat-box > div:nth-child(even) {
-  background-color: #dff0d8; /* Light green background */
+  background-color: #dff0d8; 
   text-align: left;
-  color: #333; /* Darker text for readability */
+  color: #333; 
 }
 
 /* Chat input and send button styles */
@@ -145,11 +145,11 @@ button:hover {
   background-color: #007bff; /* Changed to a blue color */
   color: white;
   border: none;
-  border-radius: 50%; /* Fully rounded */
+  border-radius: 50%; 
   cursor: pointer;
-  z-index: 1001; /* Above the chat container */
-  width: 40px; /* Fixed width for a perfect circle */
-  height: 40px; /* Fixed height for a perfect circle */
+  z-index: 1001; 
+  width: 40px; 
+  height: 40px; 
   display: flex;
   justify-content: center;
   align-items: center;
@@ -168,8 +168,8 @@ button:hover {
 /* Updated chat container styles for visible state */
 .chat-container-visible {
   position: fixed;
-  bottom: 60px; /* Height of the toggle button plus some margin */
+  bottom: 60px; 
   right: 20px;
   width: 300px;
-  /* Rest of your existing styles... */
+  
 }
