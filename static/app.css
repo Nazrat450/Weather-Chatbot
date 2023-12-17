@@ -92,20 +92,25 @@ body {
 /* Individual chat message styles */
 #chat-box > div {
   margin-bottom: 10px;
-  line-height: 1.4;
-  font-family: Arial, sans-serif;
+  padding: 8px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  font-family: 'Arial', sans-serif;
+  font-size: 14px;
 }
 
 /* User's messages */
 #chat-box > div:nth-child(odd) {
+  background-color: #e7f5ff; /* Light blue background */
   text-align: right;
-  color: blue;
+  color: #333; /* Darker text for readability */
 }
 
 /* Bot's messages */
 #chat-box > div:nth-child(even) {
+  background-color: #dff0d8; /* Light green background */
   text-align: left;
-  color: green;
+  color: #333; /* Darker text for readability */
 }
 
 /* Chat input and send button styles */

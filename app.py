@@ -35,13 +35,13 @@ def init_db():
     cursor = conn.cursor()
 
 
-# Connect to SQLite database (it will be created if it doesn't exist)
+# Connect to SQLite database 
 conn = sqlite3.connect('mattbot.db')
 
-# Create a cursor object using the cursor() method
+# Create a cursor object 
 cursor = conn.cursor()
 
-# Create table for predefined responses
+# Create table for responses
 cursor.execute('''CREATE TABLE IF NOT EXISTS responses
                   (id INTEGER PRIMARY KEY, query TEXT, response TEXT)''')
 
@@ -135,11 +135,11 @@ def get_bot_response():
         else:
             bot_response = "Hello! How can I assist you?"
 
-    elif user_input in ['moo', 'mooo', 'moooooooo', 'moooooooooooo']:
+    elif user_input in ['help']:
         # Fetch Cow response from Database
         conn = sqlite3.connect('mattbot.db')
         cursor = conn.cursor()
-        cursor.execute("SELECT response FROM responses WHERE query = 'cow'")
+        cursor.execute("SELECT response FROM responses WHERE query = 'help'")
         data = cursor.fetchone()
         conn.close()
 
@@ -201,66 +201,86 @@ def get_bot_response():
              
 
     elif 'weather' in user_input:
-        # Extract the location name from the user input
-        match = re.search(r'(?:weather|forecast)\s(?:in|for|at)\s([\w\s]+)', user_input, re.IGNORECASE)
+    # Updated regex to capture multiple locations
+        match = re.search(r'(?:weather|forecast)\s(?:in|for|at)\s([\w\s,]+)', user_input, re.IGNORECASE)
         if match:
-            location_name = match.group(1).strip()
+            locations_input = match.group(1).strip()
+            # Splitting the locations by commas and stripping extra spaces
+            location_names = [loc.strip() for loc in re.split(r'\s*,\s*|\s+and\s+', locations_input)]
+
+            # Initialize an empty list to hold individual responses for each location
+            responses = []
+
+            for location_name in location_names:
+                if location_name:
+                    # Check if location_name matches any in the predefined locations list
+                    matched_location = next((loc for loc in locations if loc['name'].lower() == location_name.lower()), None)
+
+                    # Use latitude and longitude if a match is found, else use the location name
+                    if matched_location:
+                        lat, lon = matched_location['lat'], matched_location['lon']
+                        location_key = f"{lat},{lon}"
+                        api_url = construct_api_url('', matched_location)
+                    else:
+                        location_key = location_name.lower()
+                        api_url = construct_api_url(location_name, None)
+
+                    # Check cache
+                    if is_cache_valid(location_key, weather_data_backend):
+                        print(f"Cache hit for {location_key}")  # Debug print
+                        response_text = weather_data_backend[location_key]['data']
+                    else:
+                        print(f"Cache miss for {location_key}, fetching new data...")  # Debug print
+
+                        # Fetch weather data from API
+                        response = requests.get(api_url)
+                        print("API Response Status:", response.status_code)  # Debug print
+
+                        if response.status_code == 200:
+                            weather_data = response.json()
+                            temperature = weather_data['main']['temp']
+                            condition = weather_data['weather'][0]['description'] 
+
+                            # Fetch response template from database
+                            conn = sqlite3.connect('mattbot.db')
+                            cursor = conn.cursor()
+                            cursor.execute("SELECT template FROM response_templates WHERE id = 1")
+                            template = cursor.fetchone()[0]
+                            conn.close()
+
+                            # Fill in the template with fetched data
+                            response_text = template.format(location=location_name.title(), temperature=temperature, condition=condition) + "<br>"
+
+                            # Update cache
+                            weather_data_backend[location_key] = {
+                                'data': response_text,
+                                'timestamp': time.time()
+                            }
+                        else:
+                            response_text = f"Sorry, I couldn't find the weather for {location_name}."
+
+                    # Append the response for the current location
+                    responses.append(response_text)
+
+            # Combine the responses for all locations
+            bot_response = ' '.join(responses)
         else:
-            location_name = ''
             bot_response = "Please specify a location for the weather."
-
-        print("Extracted location name:", location_name)  # Debug print
-
-        if location_name:
-            # Check if location_name matches any in the predefined locations list
-            matched_location = next((loc for loc in locations if loc['name'].lower() == location_name.lower()), None)
-
-            if matched_location:
-                # Use latitude and longitude if a match is found
-                lat, lon = matched_location['lat'], matched_location['lon']
-                location_key = f"{lat},{lon}"
-            else:
-                # Use the location name as entered if no match is found
-                location_key = location_name.lower()
-
-            # Check cache
-            if is_cache_valid(location_key, weather_data_backend):
-                print(f"Cache hit for {location_key}")  # Debug print
-                bot_response = weather_data_backend[location_key]['data']
-            else:
-                print(f"Cache miss for {location_key}, fetching new data...")  # Debug print
-                # Construct API URL based on latitude/longitude or location name
-                api_url = construct_api_url(location_name, matched_location)
-
-                # Fetch weather data from API
-                response = requests.get(api_url)
-                print("API Response Status:", response.status_code)  # Debug print
-
-                if response.status_code == 200:
-                    weather_data = response.json()
-                    temperature = weather_data['main']['temp']
-                    condition = weather_data['weather'][0]['description']
-
-                    # Fetch response template from database
-                    conn = sqlite3.connect('mattbot.db')
-                    cursor = conn.cursor()
-                    cursor.execute("SELECT template FROM response_templates WHERE id = 1")
-                    template = cursor.fetchone()[0]
-                    conn.close()
-
-                    # Fill in the template with fetched data
-                    bot_response = template.format(location=location_name.title(), temperature=temperature, condition=condition)
-
-                    # Update cache
-                    weather_data_backend[location_key] = {
-                        'data': bot_response,
-                        'timestamp': time.time()
-                    }
-                else:
-                    bot_response = "Sorry, I couldn't find the weather for that location."
     else:
         # Normal chatbot response
         bot_response = str(chatbot.get_response(user_input))
+
+
+         # Store user input and bot response in the chat_log table
+    conn = sqlite3.connect('mattbot.db')
+    cursor = conn.cursor()
+    try:
+        cursor.execute("INSERT INTO chat_log (user_input, bot_response) VALUES (?, ?)", (user_input, bot_response))
+        conn.commit()
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+    finally:
+        conn.close()
 
     return jsonify(bot_response=bot_response)
 

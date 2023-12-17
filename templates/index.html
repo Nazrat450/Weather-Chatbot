@@ -91,22 +91,36 @@
     });
 
     function sendMessage() {
-        var userInput = document.getElementById('chat-input').value;
-        fetch('/get-response', {
-            method: 'POST',
-            body: new URLSearchParams('text=' + userInput),
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-        })
-        .then(response => response.json())
-        .then(data => {
-            var chatBox = document.getElementById('chat-box');
-            chatBox.innerHTML += '<div>User: ' + userInput + '</div>';
-            chatBox.innerHTML += '<div>Bot: ' + data.bot_response + '</div>';
-        });
+    var userInput = document.getElementById('chat-input').value;
+    if (!userInput.trim()) {
+        return; // Don't send empty messages
     }
+    fetch('/get-response', {
+        method: 'POST',
+        body: new URLSearchParams('text=' + userInput),
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        var chatBox = document.getElementById('chat-box');
+        chatBox.innerHTML += '<div>User: ' + userInput + '</div>';
+        chatBox.innerHTML += '<div>Bot: ' + data.bot_response + '</div>';
+        document.getElementById('chat-input').value = ''; // Clear the input field
 
+        // Scroll to the bottom of the chat box
+        chatBox.scrollTop = chatBox.scrollHeight;
+    });
+}
+
+// Event listener for the chat input to handle the Enter key
+document.getElementById('chat-input').addEventListener('keypress', function(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault(); // Prevent the default action of the Enter key
+        sendMessage();
+    }
+});
     document.getElementById('chatToggle').addEventListener('click', function() {
     var chatContainer = document.getElementById('chat-container');
     if (chatContainer.classList.contains('chat-container-hidden')) {
