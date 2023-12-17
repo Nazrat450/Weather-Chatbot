@@ -3,7 +3,8 @@ import requests
 from chatterbot import ChatBot
 from chatterbot.trainers import ChatterBotCorpusTrainer
 import sqlite3
-
+import re
+import datetime
 
 
 
@@ -54,19 +55,13 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS response_templates (
                         template TEXT)''')
 
 
-
-# Insert a default template if not exists
-cursor.execute('''INSERT INTO response_templates (id, template)
-                      SELECT 1, 'Hi I am the channel 42 Weather man bringing you the Weather. The weather in {location} is {condition} with a temperature of {temperature}°C.'
-                      WHERE NOT EXISTS(SELECT 1 FROM response_templates WHERE id = 1);''')
-# Insert a greeting response template into the database
-cursor.execute("INSERT INTO responses (query, response) VALUES (?, ?)", 
-               ("greeting", "G'day! I am the Channel 42 weather bot here to help."))
 # Commit the changes and close the connection
 conn.commit()
 conn.close()
 
 init_db()
+
+
 
 weather_data_backend = {}  # Global dictionary to store weather data
 
@@ -80,12 +75,26 @@ trainer = ChatterBotCorpusTrainer(chatbot)
 # Train the chatbot based on the English corpus
 trainer.train("chatterbot.corpus.english")
 
-
-
+def process_forecast_data(forecast_data):
+    forecast_summary = ""
+    for entry in forecast_data['list'][::8]:  # Assumes the API provides data in 3-hour intervals
+        # Extract the date and time
+        date_str = entry['dt_txt']
+        # Convert the string to a datetime object
+        date_obj = datetime.datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
+        # Get the weekday name
+        weekday = date_obj.strftime("%A")
+        # Get the temperature
+        temperature = entry['main']['temp']
+        # Add to the summary, each day on a new line
+        forecast_summary += f"{weekday}: {temperature}°C\n"
+    return forecast_summary
 
 app = Flask(__name__)
 
+
 @app.route("/get-response", methods=['POST'])
+
 def get_bot_response():
     user_input = request.form.get('text').lower()
 
@@ -103,14 +112,78 @@ def get_bot_response():
         else:
             bot_response = "Hello! How can I assist you?"
 
+    elif user_input in ['moo', 'mooo', 'moooooooo', 'moooooooooooo']:
+        # Fetch Cow response from Database
+        conn = sqlite3.connect('mattbot.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT response FROM responses WHERE query = 'cow'")
+        data = cursor.fetchone()
+        conn.close()
+
+        if data:
+            bot_response = data[0]
+        else:
+            bot_response = "Hello! How can I assist you?"     
+
+    elif user_input in ['what do you think about weather?']:
+        # Fetch Cow response from Database
+        conn = sqlite3.connect('mattbot.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT response FROM responses WHERE query = 'weather thoughts'")
+        data = cursor.fetchone()
+        conn.close()
+
+        if data:
+            bot_response = data[0]
+        else:
+            bot_response = "Hello! How can I assist you?"    
+            
+    elif 'forecast for' in user_input:
+        match = re.search(r'forecast\sfor\s([\w\s]+)', user_input, re.IGNORECASE)
+        if match:
+            location_name = match.group(1).strip()
+
+            # Check if location_name matches any in the predefined locations list
+            matched_location = next((loc for loc in locations if loc['name'].lower() == location_name.lower()), None)
+
+            if matched_location:
+                # Use latitude and longitude if a match is found
+                lat, lon = matched_location['lat'], matched_location['lon']
+                api_url = f"http://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid=42c10c6eeff25fdb9a2e1ae45c758f7f&units=metric"
+            else:
+                # Use the location name as entered if no match is found
+                api_url = f"http://api.openweathermap.org/data/2.5/forecast?q={location_name}&appid=42c10c6eeff25fdb9a2e1ae45c758f7f&units=metric"
+
+            # Make the API call here
+            response = requests.get(api_url)
+
+            if response.status_code == 200:
+                forecast_data = response.json()
+                forecast_content = process_forecast_data(forecast_data)
+
+                # Fetch forecast template from database
+                conn = sqlite3.connect('mattbot.db')
+                cursor = conn.cursor()
+                cursor.execute("SELECT template FROM response_templates WHERE id = 2")
+                template = cursor.fetchone()[0]
+                conn.close()
+
+                # Fill in the template with fetched data
+                bot_response = template.format(location=location_name.title(), forecast=forecast_content)
+            else:
+                bot_response = "Sorry, I couldn't find the forecast for that location."
+        else:
+            bot_response = "Please specify a location for the forecast."
+
+             
+
     elif 'weather' in user_input:
         # Extract the location name from the user input
-        words = user_input.split()
-        if 'weather' in words:
-            weather_index = words.index('weather')
-            location_name = ' '.join(words[weather_index + 1:])
+        match = re.search(r'(?:weather|forecast)\s(?:in|for|at)\s([\w\s]+)', user_input, re.IGNORECASE)
+        if match:
+         location_name = match.group(1).strip()
         else:
-            location_name = ''
+         location_name = ''
 
         print("Extracted location name:", location_name)  # Debug print
 
