@@ -9,12 +9,15 @@
         <span id="closePopup" class="close-popup">&times;</span>
         <iframe id="mapFrame" width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
       </div>
-
-      <div id="chat-container">
+      <button id="chatToggle" class="chat-toggle-btn">Chat</button>
+<div id="chat-container" class="chat-container-hidden">
+    <div id="chat-container">
         <div id="chat-box"></div>
         <input type="text" id="chat-input" placeholder="Ask me about the weather...">
         <button onclick="sendMessage()">Send</button>
     </div>
+</div>
+      
 
 
     <div class="container"> 
@@ -104,7 +107,16 @@
         });
     }
 
-
+    document.getElementById('chatToggle').addEventListener('click', function() {
+    var chatContainer = document.getElementById('chat-container');
+    if (chatContainer.classList.contains('chat-container-hidden')) {
+        chatContainer.classList.remove('chat-container-hidden');
+        chatContainer.classList.add('chat-container-visible');
+    } else {
+        chatContainer.classList.remove('chat-container-visible');
+        chatContainer.classList.add('chat-container-hidden');
+    }
+});
 
 
 

@@ -131,3 +131,40 @@ button:hover {
 #chat-input {
   resize: none;
 }
+/* Chat toggle button styles */
+.chat-toggle-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 150px; /* Adjusted to move slightly off the right edge */
+  padding: 5px; /* Reduced padding for a smaller button */
+  background-color: #007bff; /* Changed to a blue color */
+  color: white;
+  border: none;
+  border-radius: 50%; /* Fully rounded */
+  cursor: pointer;
+  z-index: 1001; /* Above the chat container */
+  width: 40px; /* Fixed width for a perfect circle */
+  height: 40px; /* Fixed height for a perfect circle */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 14px; /* Adjust font size as needed */
+}
+
+.chat-toggle-btn:hover {
+  background-color: #45a049;
+}
+
+/* Updated chat container styles for hidden state */
+.chat-container-hidden {
+  display: none;
+}
+
+/* Updated chat container styles for visible state */
+.chat-container-visible {
+  position: fixed;
+  bottom: 60px; /* Height of the toggle button plus some margin */
+  right: 20px;
+  width: 300px;
+  /* Rest of your existing styles... */
+}
